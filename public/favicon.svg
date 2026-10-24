@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mẹo Hay Mỗi Ngày">
+  <rect width="64" height="64" rx="14" fill="#177245"/>
+  <path d="M32 12c7 11 7 23 0 31-7-8-7-20 0-31Z" fill="#eaf5ec"/>
+  <path d="M32 43v10M22 53h20" stroke="#eaf5ec" stroke-width="4" stroke-linecap="round"/>
+</svg>

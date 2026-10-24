@@ -1,0 +1,33 @@
+{
+  "name": "meo-hay-moi-ngay",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Mẹo Hay Mỗi Ngày — blog platform with admin CMS, publishing API, SEO and anti-scraping",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.js",
+    "db:seed": "node --env-file-if-exists=.env scripts/seed.js",
+    "db:import-legacy": "node --env-file-if-exists=.env scripts/import-legacy.js",
+    "db:retag": "node --env-file-if-exists=.env scripts/retag.js",
+    "create-admin": "node --env-file-if-exists=.env scripts/create-admin.js",
+    "backup": "node --env-file-if-exists=.env scripts/backup.js",
+    "check": "node scripts/check-syntax.js",
+    "test": "node --env-file-if-exists=.env --test --test-concurrency=1 tests/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "marked": "^16.4.1",
+    "multer": "^2.0.2",
+    "sanitize-html": "^2.17.0",
+    "zod": "^4.1.12"
+  }
+}
