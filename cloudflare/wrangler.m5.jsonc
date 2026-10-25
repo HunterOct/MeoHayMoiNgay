@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "meohay-m5-tools",
+  "compatibility_date": "2026-10-24",
+  "d1_databases": [
+    { "binding": "M5_SRC", "database_name": "meohay-m5-src-1792914988", "database_id": "bd69678d-a102-4f32-8822-b2f8c0014416", "migrations_dir": "migrations" },
+    { "binding": "M5_RESTORE", "database_name": "meohay-m5-restore-1792914988", "database_id": "1b87d6c6-c505-4644-845f-bc14558d03b9", "migrations_dir": "migrations" }
+  ]
+}

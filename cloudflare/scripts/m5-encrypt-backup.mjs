@@ -1,0 +1,24 @@
+import fs from "node:fs";
+import crypto from "node:crypto";
+
+const inputPath = process.argv[2] || "backups/m5-source-data.sql";
+const outputPath = process.argv[3] || `${inputPath}.enc`;
+const verifyPath = process.argv[4] || `${inputPath}.verify.sql`;
+const keyPath = ".m5-backup.key";
+if (!fs.existsSync(keyPath)) fs.writeFileSync(keyPath, crypto.randomBytes(32));
+const key = fs.readFileSync(keyPath);
+const input = fs.readFileSync(inputPath);
+const iv = crypto.randomBytes(12);
+const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+const ciphertext = Buffer.concat([cipher.update(input), cipher.final()]);
+const tag = cipher.getAuthTag();
+const payload = Buffer.concat([Buffer.from("M5BK1"), iv, tag, ciphertext]);
+fs.writeFileSync(outputPath, payload);
+const read = fs.readFileSync(outputPath);
+const decipher = crypto.createDecipheriv("aes-256-gcm", key, read.subarray(5, 17));
+decipher.setAuthTag(read.subarray(17, 33));
+const plain = Buffer.concat([decipher.update(read.subarray(33)), decipher.final()]);
+const sha = (buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
+if (sha(plain) !== sha(input)) throw new Error("backup decrypt hash mismatch");
+fs.writeFileSync(verifyPath, plain);
+console.log(JSON.stringify({ input: inputPath, encrypted: outputPath, plaintext_bytes: input.length, encrypted_bytes: payload.length, sha256: sha(input), verified: true, key_file: keyPath }, null, 2));

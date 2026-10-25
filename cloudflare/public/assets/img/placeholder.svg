@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 735" role="img" aria-label="Ảnh không khả dụng">
+  <rect width="980" height="735" fill="#e5f2e8"/>
+  <g fill="none" stroke="#177245" stroke-width="10" stroke-linecap="round">
+    <rect x="300" y="245" width="380" height="245" rx="18"/>
+    <circle cx="390" cy="320" r="30"/>
+    <path d="M320 455l110-105 80 75 70-60 80 90"/>
+  </g>
+  <text x="490" y="570" text-anchor="middle" font-family="system-ui, sans-serif" font-size="30" fill="#177245">Ảnh không khả dụng</text>
+</svg>

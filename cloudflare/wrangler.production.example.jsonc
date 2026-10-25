@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "meohay-production",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "meohay-production",
+      "database_id": "REPLACE_WITH_PRODUCTION_D1_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "SECURE_OPS", "class_name": "SecureOps" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SecureOps"] }],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "MEDIA_PROVIDER": "static",
+    "SITE_URL": "https://REPLACE_WITH_PRODUCTION_DOMAIN",
+    "ENVIRONMENT": "production",
+    "REQUIRE_IF_MATCH": "1",
+    "REQUIRE_STAGING_TOKEN": "1"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

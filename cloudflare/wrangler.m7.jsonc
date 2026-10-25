@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "meohay-m7-tools",
+  "compatibility_date": "2026-10-24",
+  "d1_databases": [
+    {
+      "binding": "M7_TARGET",
+      "database_name": "meohay-m7-migration-1792944499",
+      "database_id": "448322ca-8b5f-4adc-9cb1-a24690a75fad",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

@@ -1,0 +1,664 @@
+openapi: 3.1.0
+info:
+  title: Mẹo Hay Mỗi Ngày — Publishing API
+  version: 1.2.0
+  description: |
+    API cho hệ thống AI bên ngoài tạo, cập nhật, lên lịch và xuất bản bài viết.
+
+    Xác thực bằng Bearer key. Key chỉ hiển thị một lần khi tạo/xoay vòng trong
+    trang quản trị `/admin/api-clients`; server lưu hash.
+
+    Hai chế độ:
+    - `review`: mọi yêu cầu `published`/`scheduled` được hạ về `review` để biên tập viên duyệt.
+    - `auto`: được xuất bản trực tiếp nếu key có scope `posts:publish`.
+
+    ## Optimistic concurrency (OCC)
+
+    Mọi bài viết có trường `version` (bắt đầu từ 1) và header `ETag: "vN"`.
+    Client nên `GET` bài viết, lưu `version`, rồi gửi `If-Match: "vN"` cho
+    `PATCH`, `publish`, `schedule`, `unpublish` và `DELETE`. Server so sánh nguyên tử
+    với D1; nếu version đã đổi, trả `412 version_conflict` kèm `current_version` để client tải lại.
+    Nếu thiếu header khi strict mode bật, trả `428 precondition_required`.
+
+    Chính sách chuyển tiếp: staging hiện bật `REQUIRE_IF_MATCH=1` (strict).
+    Client cũ không gửi header sẽ nhận 428 và phải nâng cấp theo hướng dẫn
+    `docs/API-OCC-MIGRATION.md`. `POST /posts` (tạo mới) không yêu cầu `If-Match`;
+    dùng `Idempotency-Key` hoặc `external_id` để chống trùng khi retry.
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local
+  - url: https://example.com/api/v1
+    description: Production (thay bằng domain của bạn)
+security:
+  - bearerAuth: []
+tags:
+  - name: System
+  - name: Posts
+  - name: Media
+  - name: Taxonomy
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "`Authorization: Bearer mh_<key_id>_<secret>`"
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Khoá chống trùng cho POST/PATCH. Retry cùng key + cùng payload trả lại response cũ.
+      schema:
+        type: string
+        maxLength: 200
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: |
+        Version precondition dạng `"vN"` hoặc `vN`; `*` bỏ qua kiểm tra.
+        Strict mode (`REQUIRE_IF_MATCH=1`) trả 428 nếu thiếu; version cũ trả 412.
+      schema:
+        type: string
+        examples: ['"v7"']
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              examples: [validation_error, unauthorized, forbidden, idempotency_conflict]
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            request_id:
+              type: string
+    PostInput:
+      type: object
+      required: [title]
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 200
+        slug:
+          type: string
+          maxLength: 120
+          description: Tự tạo từ tiêu đề nếu bỏ trống; hệ thống tự thêm hậu tố nếu trùng.
+        excerpt:
+          type: string
+          maxLength: 500
+          description: Tự sinh từ nội dung nếu bỏ trống.
+        lede:
+          type: string
+          maxLength: 600
+        content:
+          type: string
+          maxLength: 200000
+        content_format:
+          type: string
+          enum: [markdown, html]
+          default: markdown
+        category:
+          type: string
+          description: ID hoặc slug chuyên mục. Bỏ trống = chưa phân loại.
+          examples: [wifi-mang]
+        tags:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+            maxLength: 60
+        cover_image:
+          type: string
+          description: URL https hoặc đường dẫn nội bộ bắt đầu bằng `/`.
+        cover_media_id:
+          type: string
+          description: ID ảnh đã upload qua POST /media. Chỉ dùng khi media provider được cấu hình; ưu tiên hơn cover_image.
+        cover_alt:
+          type: string
+          maxLength: 300
+        cover_caption:
+          type: string
+          maxLength: 300
+        seo:
+          type: object
+          additionalProperties: false
+          properties:
+            title: { type: string, maxLength: 80 }
+            description: { type: string, maxLength: 220 }
+            focus_keyword: { type: string, maxLength: 100 }
+            canonical_url: { type: string }
+            og_image: { type: string }
+        status:
+          type: string
+          enum: [draft, review, published, scheduled]
+          default: draft
+        scheduled_at:
+          type: string
+          format: date-time
+          description: Bắt buộc khi status=scheduled. Phải ở tương lai.
+        is_featured:
+          type: boolean
+        read_minutes:
+          type: integer
+          minimum: 1
+          maximum: 120
+        external_id:
+          type: string
+          maxLength: 200
+          description: ID bài viết phía hệ thống AI. Duy nhất theo API client, dùng để chống trùng.
+    PostUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 3, maxLength: 200 }
+        slug: { type: string, maxLength: 120 }
+        excerpt: { type: string, maxLength: 500 }
+        lede: { type: string, maxLength: 600 }
+        content: { type: string, maxLength: 200000 }
+        content_format: { type: string, enum: [markdown, html] }
+        category: { type: string }
+        tags:
+          type: array
+          maxItems: 8
+          items: { type: string, maxLength: 60 }
+        cover_image: { type: string }
+        cover_media_id: { type: string }
+        cover_alt: { type: string, maxLength: 300 }
+        cover_caption: { type: string, maxLength: 300 }
+        seo:
+          type: object
+          additionalProperties: false
+          properties:
+            title: { type: string, maxLength: 80 }
+            description: { type: string, maxLength: 220 }
+            focus_keyword: { type: string, maxLength: 100 }
+            canonical_url: { type: string }
+            og_image: { type: string }
+        status:
+          type: string
+          enum: [draft, review, published, scheduled, archived]
+        scheduled_at: { type: string, format: date-time }
+        is_featured: { type: boolean }
+        read_minutes: { type: integer, minimum: 1, maximum: 120 }
+    Post:
+      type: object
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        lede: { type: string }
+        content: { type: string, description: Nội dung gốc (Markdown hoặc HTML). }
+        content_format: { type: string, enum: [markdown, html] }
+        content_html: { type: string, description: HTML đã render và sanitize. }
+        status: { type: string, enum: [draft, review, scheduled, published, archived] }
+        category:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            name: { type: string }
+            slug: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        cover:
+          type: object
+          properties:
+            url: { type: string }
+            alt: { type: string }
+            caption: { type: string }
+        seo:
+          type: object
+          additionalProperties: true
+        author:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            name: { type: string }
+        is_featured: { type: boolean }
+        read_minutes: { type: integer }
+        views: { type: integer }
+        external_id: { type: string, nullable: true }
+        published_at: { type: string, nullable: true }
+        scheduled_at: { type: string, nullable: true }
+        created_at: { type: string }
+        updated_at: { type: string }
+        version: { type: integer, minimum: 1, description: Dùng cho If-Match; tăng sau mỗi thay đổi ghi. }
+        deleted_at: { type: string, nullable: true }
+        url: { type: string }
+    Media:
+      type: object
+      properties:
+        id: { type: string }
+        filename: { type: string }
+        url: { type: string }
+        path: { type: string }
+        mime: { type: string }
+        size: { type: integer }
+        width: { type: integer, nullable: true }
+        height: { type: integer, nullable: true }
+        alt: { type: string }
+        original_name: { type: string }
+        created_at: { type: string }
+    responses:
+      BadRequest:
+        description: Dữ liệu không hợp lệ
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      Unauthorized:
+        description: Thiếu hoặc sai API key
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      Forbidden:
+        description: Thiếu scope hoặc sai chế độ xuất bản
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      NotFound:
+        description: Không tìm thấy
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      Gone:
+        description: Bài viết đã bị xóa
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      Conflict:
+        description: Xung đột idempotency/external_id
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      PreconditionRequired:
+        description: Strict mode yêu cầu If-Match
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+            examples:
+              required:
+                value:
+                  error:
+                    code: precondition_required
+                    message: Cần gửi If-Match với version hiện tại trước khi sửa bài.
+                    details:
+                      - path: If-Match
+                        message: 'Version hiện tại: 7'
+      PreconditionFailed:
+        description: Version đã thay đổi hoặc If-Match không khớp
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+            examples:
+              stale:
+                value:
+                  error:
+                    code: version_conflict
+                    message: Bài viết đã được cập nhật ở phiên bản khác.
+                    details:
+                      - path: If-Match
+                        message: 'Version hiện tại: 8'
+      RateLimited:
+        description: Vượt giới hạn request
+        headers:
+          Retry-After:
+            schema: { type: integer }
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+paths:
+  /health:
+    get:
+      tags: [System]
+      security: []
+      summary: Kiểm tra dịch vụ
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, examples: [ok] }
+                  time: { type: string }
+  /openapi.yaml:
+    get:
+      tags: [System]
+      security: []
+      summary: Tài liệu OpenAPI (YAML)
+      responses:
+        '200':
+          description: OK
+          content:
+            text/yaml:
+              schema: { type: string }
+  /me:
+    get:
+      tags: [System]
+      summary: Thông tin API client hiện tại
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      scopes:
+                        type: array
+                        items: { type: string }
+                      publish_mode: { type: string, enum: [auto, review] }
+                      rate_limit_per_min: { type: integer }
+  /categories:
+    get:
+      tags: [Taxonomy]
+      summary: Danh sách chuyên mục công khai
+      responses:
+        '200':
+          description: OK
+  /tags:
+    get:
+      tags: [Taxonomy]
+      summary: Danh sách thẻ
+      responses:
+        '200':
+          description: OK
+  /posts:
+    get:
+      tags: [Posts]
+      summary: Danh sách bài viết (không kèm nội dung)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, review, scheduled, published, archived] }
+        - name: category
+          in: query
+          description: ID hoặc slug chuyên mục
+          schema: { type: string }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Post' }
+                  pagination:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      limit: { type: integer }
+                      offset: { type: integer }
+                      has_more: { type: boolean }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    post:
+      tags: [Posts]
+      summary: Tạo bài viết
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PostInput' }
+            examples:
+              autoPublish:
+                summary: Yêu cầu xuất bản (client auto + posts:publish)
+                value:
+                  title: "5 cách giữ rau thơm tươi lâu"
+                  slug: "giu-rau-thom-tuoi-lau"
+                  excerpt: "Rau thơm nhanh héo vì sai cách bảo quản. Làm theo 5 bước này để giữ được gần một tuần."
+                  content: "## Nguyên nhân\n\nRau thơm héo vì mất nước..."
+                  content_format: markdown
+                  category: an-uong
+                  tags: [bảo quản thực phẩm, rau củ]
+                  status: published
+                  external_id: "ai-run-2026-10-24-0001"
+                  seo:
+                    title: "Cách giữ rau thơm tươi lâu"
+                    description: "Bảo quản rau thơm đúng cách giúp giữ được gần một tuần."
+      responses:
+        '201':
+          description: Đã tạo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Post' }
+                  meta:
+                    type: object
+                    properties:
+                      publish_mode: { type: string, enum: [auto, review] }
+                      publish_demoted: { type: boolean }
+                      external_id_replayed: { type: boolean }
+        '200':
+          description: Trả lại bài đã tồn tại (external_id trùng hoặc idempotency replay)
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /posts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Posts]
+      summary: Lấy bài viết đầy đủ
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Post' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+    patch:
+      tags: [Posts]
+      summary: Cập nhật một phần bài viết
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PostUpdate' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Post' }
+                  meta:
+                    type: object
+                    properties:
+                      publish_demoted: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+    delete:
+      tags: [Posts]
+      summary: Xóa mềm bài viết (chế độ auto + posts:publish)
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: OK
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /posts/slug/{slug}:
+    get:
+      tags: [Posts]
+      summary: Lấy bài viết theo slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Post' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+  /posts/{id}/publish:
+    post:
+      tags: [Posts]
+      summary: Xuất bản ngay (yêu cầu chế độ auto + posts:publish)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: OK
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /posts/{id}/schedule:
+    post:
+      tags: [Posts]
+      summary: Đặt lịch xuất bản (auto + posts:publish)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scheduled_at]
+              properties:
+                scheduled_at: { type: string, format: date-time }
+      responses:
+        '200':
+          description: OK
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /posts/{id}/unpublish:
+    post:
+      tags: [Posts]
+      summary: Bỏ xuất bản (auto + posts:publish)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [draft, review, archived], default: draft }
+      responses:
+        '200':
+          description: OK
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /media:
+    post:
+      tags: [Media]
+      summary: Upload ảnh (multipart/form-data, trường `file`)
+      description: |
+        Giới hạn: JPG/PNG/WebP/GIF, tối đa 8 MB, 8192×8192 px, 40 MP.
+        Nếu chưa cấu hình `MEDIA_PROVIDER`/binding, API trả 501 `media_not_configured`.
+        Không có fake success; metadata chỉ được ghi sau khi object lưu thành công.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                alt:
+                  type: string
+                  maxLength: 300
+      responses:
+        '201':
+          description: Đã lưu ảnh
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Media' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '413':
+          description: Ảnh quá lớn
+        '501':
+          description: Media provider chưa được cấu hình
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }

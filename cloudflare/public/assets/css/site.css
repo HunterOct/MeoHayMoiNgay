@@ -1,0 +1,98 @@
+/* Public site additions on top of style.css (layout preserved). */
+
+a{text-decoration:none}
+a:hover{text-decoration:none}
+.skip-link{position:absolute;left:-999px;top:0;z-index:999;background:var(--accent);color:#fff;padding:10px 16px;border-radius:0 0 8px 0}
+.skip-link:focus{left:0}
+
+/* Header/brand as links */
+.masthead .brand{display:block;text-decoration:none}
+.foot-grid .brand{text-decoration:none;color:var(--ink)}
+.navlinks a{display:inline-flex;align-items:center;gap:6px;padding:14px;color:var(--ink);font-weight:600;font-size:14.5px}
+.navlinks a:hover,.navlinks a.active{color:var(--accent)}
+.navdrop .drop-btn{text-decoration:none}
+.drop-panel .drop-item{text-decoration:none;color:var(--ink)}
+.drop-panel .drop-item:hover{text-decoration:none}
+.search-submit{border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:600}
+.search-submit:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Breadcrumbs as links */
+.crumbs a{color:var(--ink-faint);font-size:13.5px}
+.crumbs a:hover{color:var(--accent)}
+
+/* Sidebar categories as links */
+.catlist a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 2px;color:var(--ink);font-size:15px;font-weight:500}
+.catlist a:hover,.catlist a.active{color:var(--accent)}
+
+/* Content cards */
+/* Images carry width/height attributes for CLS; when CSS constrains only width,
+   force auto height so the attribute height does not become a presentational hint. */
+.thumb-card img,
+.article .heroimg img,
+.prose img{height:auto}
+.post-card,.cat-row,.hero-card,.side-post,.thumb-card,.pn,.hero-side-post,.ticker-title{text-decoration:none}
+.post-card:focus-visible,.cat-row:focus-visible,.hero-card:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.ticker-title{display:block}
+#tickerData[hidden]{display:none}
+
+/* Pagination links */
+.pager a,.pager span{min-width:38px;height:38px;padding:0 10px;border:1px solid var(--line);background:var(--bg-card);color:var(--ink);font-weight:600;border-radius:6px;display:inline-flex;align-items:center;justify-content:center}
+.pager a:hover{border-color:var(--accent);color:var(--accent)}
+.pager .active{background:var(--accent);border-color:var(--accent);color:#fff}
+.pager .disabled{opacity:.45;cursor:default}
+
+/* Archive heading */
+.archive-desc{color:var(--ink-soft);margin:-8px 0 26px;max-width:720px}
+
+/* Tags */
+.taglist{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 6px}
+.tag{display:inline-flex;align-items:center;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink-soft);border-radius:999px;padding:6px 12px;font-size:13.5px;font-weight:600}
+.tag:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Article content extras */
+.prose h3{font-family:"Playfair Display",Georgia,serif;font-size:22px;line-height:1.4;margin:30px 0 12px}
+.prose h4{font-size:18px;margin:24px 0 10px}
+.prose a{text-decoration:underline;text-underline-offset:2px}
+.prose img{border-radius:10px;margin:20px auto}
+.prose figure{margin:24px 0}
+.prose figcaption{font-size:13px;color:var(--ink-faint);text-align:center;margin-top:6px}
+.prose blockquote{margin:22px 0;padding:4px 0 4px 20px;border-left:3px solid var(--accent);color:var(--ink-soft)}
+.prose code{background:var(--bg-soft);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:.9em}
+.prose pre{background:var(--bg-soft);border:1px solid var(--line);border-radius:10px;padding:16px;overflow:auto}
+.prose pre code{border:0;padding:0;background:none}
+.prose table{width:100%;border-collapse:collapse;margin:20px 0;display:block;overflow-x:auto}
+.prose th,.prose td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+.prose th{background:var(--bg-soft);font-weight:700}
+.prose hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+
+/* Error pages */
+.error-page{padding-top:34px}
+.error-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-card);padding:40px 34px;text-align:center;box-shadow:var(--shadow)}
+.error-code{font-family:"Playfair Display",Georgia,serif;font-size:64px;font-weight:800;color:var(--accent);line-height:1}
+.error-card h1{font-family:"Playfair Display",Georgia,serif;font-size:30px;margin:10px 0 8px}
+.error-card p{color:var(--ink-soft);margin:0 0 8px}
+.error-detail{font-size:13.5px}
+.error-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+.error-help{max-width:520px;margin:34px auto 0}
+.foot-feeds{margin-top:6px}
+.preview-bar{background:#fff3dc;border:1px solid #f0d7a4;color:#6b4a00;border-radius:10px;padding:10px 14px;font-size:13.5px;margin-top:18px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.preview-bar a{color:#6b4a00;text-decoration:underline}
+html[data-theme="dark"] .preview-bar{background:#2d2411;border-color:#5a4820;color:#f0c56a}
+html[data-theme="dark"] .preview-bar a{color:#f0c56a}
+.foot-feeds a{color:var(--ink-soft)}
+.foot-bottom a{color:var(--ink-faint)}
+.foot-bottom a:hover{color:var(--accent)}
+
+/* Slightly larger tap targets on small screens */
+@media (max-width:640px){
+  .navlinks a{padding:12px 10px}
+  .search-submit{display:none}
+  .error-card{padding:30px 20px}
+  .error-code{font-size:48px}
+}
+
+@media print{
+  .topstrip,.navbar,.side,.tipsband,footer,#progress,.authorbox,.prevnext,.taglist,.backrow{display:none !important}
+  .layout{display:block}
+  .article{max-width:none}
+}

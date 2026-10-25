@@ -1,0 +1,45 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "meohay-m0-stg-230403",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "meohay-m0-stg-230403",
+      "database_id": "df5d54cc-bb44-4f79-90b7-e5c15e182d85",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "SECURE_OPS", "class_name": "SecureOps" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SecureOps"]
+    }
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "MEDIA_PROVIDER": "static",
+    "SITE_URL": "https://meohay-m0-stg-230403.poseidonxx001.workers.dev",
+    "REQUIRE_STAGING_TOKEN": "1",
+    "REQUIRE_IF_MATCH": "1",
+    "ENVIRONMENT": "staging"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
